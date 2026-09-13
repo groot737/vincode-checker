@@ -8,7 +8,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static(__dirname));
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialize OpenAI instance (will automatically use OPENAI_API_KEY from environment)
 let openai;

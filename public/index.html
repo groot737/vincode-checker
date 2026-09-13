@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIN Decoder Pro — Vehicle Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-[#f8f9fb] text-gray-800 font-sans antialiased flex flex-col min-h-screen">
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-white/90 backdrop-blur-sm z-[100] flex flex-col items-center justify-center hidden transition-opacity duration-300">
+        <div class="relative mb-6">
+            <div class="w-16 h-16 border-4 border-gray-200 rounded-full"></div>
+            <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full absolute top-0 left-0 animate-spin"></div>
+        </div>
+        <p class="text-lg font-semibold text-gray-900" id="loadingText">Decoding VIN...</p>
+        <p class="text-sm text-gray-400 mt-1" id="loadingSubText">Fetching vehicle data from database</p>
+    </div>
+
+    <!-- Top Nav -->
+    <nav class="bg-white/80 backdrop-blur-lg border-b border-gray-200/60 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-md shadow-blue-500/20">
+                    <i class="fas fa-car text-white text-sm"></i>
+                </div>
+                <span class="text-xl font-bold text-gray-900 tracking-tight">VIN Decoder <span class="text-blue-600">Pro</span></span>
+            </div>
+            <div class="hidden sm:flex items-center gap-2 text-xs text-gray-400">
+                <span class="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2.5 py-1 rounded-full font-medium">
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> API Online
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 py-10 flex-grow w-full">
+
+        <!-- Hero / Search Section -->
+        <section class="text-center mb-12">
+            <div class="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-4 py-1.5 rounded-full mb-5 tracking-wide uppercase">
+                <i class="fas fa-bolt"></i> Instant Vehicle Intelligence
+            </div>
+            <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-tight mb-4">
+                Decode Any Vehicle<br class="hidden md:block"> in Seconds
+            </h1>
+            <p class="text-gray-500 max-w-lg mx-auto text-base">Enter a 17-character VIN to get a comprehensive vehicle report — specs, pricing, warranty & more.</p>
+        </section>
+
+        <!-- Search Card -->
+        <div class="max-w-2xl mx-auto mb-16">
+            <div class="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 p-2">
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input type="text" id="vinInput" placeholder="e.g. WBAFR7C57CC811956"
+                        class="flex-1 px-5 py-4 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase text-lg tracking-widest font-mono placeholder:text-gray-300 placeholder:tracking-normal placeholder:font-sans transition-all"
+                        maxlength="17" value="WBAFR7C57CC811956">
+                    <button id="checkBtn"
+                        class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2.5 text-base shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 active:scale-[0.98]">
+                        <i class="fas fa-magnifying-glass text-sm"></i> Decode VIN
+                    </button>
+                </div>
+            </div>
+            <p id="errorMsg" class="text-red-500 text-sm mt-3 hidden flex items-center gap-1.5 justify-center font-medium">
+                <i class="fas fa-circle-exclamation"></i> Please enter a valid 17-character VIN.
+            </p>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden animate-fade-in">
+
+            <!-- Results Header Bar -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div>
+                    <h2 class="text-2xl md:text-3xl font-bold text-gray-900" id="vehicleTitle"></h2>
+                    <p class="text-gray-400 text-sm mt-1.5 flex items-center gap-2 font-mono">
+                        <i class="fas fa-barcode text-gray-300"></i>
+                        <span id="displayVin"></span>
+                    </p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button id="aiAnalyzerBtn"
+                        class="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2.5 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 active:scale-[0.98]">
+                        <i class="fas fa-wand-magic-sparkles"></i> AI Price Analysis
+                    </button>
+                    <button id="downloadPdfBtn"
+                        class="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2.5 shadow-lg shadow-gray-900/20 active:scale-[0.98]">
+                        <i class="fas fa-arrow-down-to-line"></i> Download PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- AI Price Analysis Results (hidden initially) -->
+            <!-- AI Price Analysis Results (hidden initially) -->
+            <div id="aiResultsSection" class="hidden mb-10 animate-fade-in">
+                <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-8 text-center max-w-sm mx-auto shadow-sm">
+                    <div class="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Estimated Value</div>
+                    <div class="text-5xl font-extrabold text-indigo-600" id="aiPriceValue">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Report Card (used for PDF content) -->
+            <div id="pdfContent" class="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden mb-10">
+
+                <!-- Banner -->
+                <div class="bg-gradient-to-r from-gray-900 to-gray-800 text-white px-8 py-7 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h3 class="text-xl md:text-2xl font-bold tracking-tight" id="reportTitle"></h3>
+                        <p class="text-gray-400 text-sm mt-1" id="reportDate"></p>
+                    </div>
+                    <div class="sm:text-right">
+                        <div class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mb-0.5">Manufacturer's Suggested Retail</div>
+                        <div class="text-2xl md:text-3xl font-light text-emerald-400 tracking-tight" id="reportMsrp"></div>
+                    </div>
+                </div>
+
+                <div class="p-6 md:p-10">
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10" id="quickStats"></div>
+
+                    <hr class="border-gray-100 mb-10">
+
+                    <!-- Specs Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-10">
+                        <!-- Technical Specifications -->
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-5 flex items-center gap-2">
+                                <span class="w-1 h-5 bg-blue-600 rounded-full"></span> Technical Specifications
+                            </h4>
+                            <div id="techSpecs"></div>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div class="space-y-10">
+                            <div>
+                                <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-5 flex items-center gap-2">
+                                    <span class="w-1 h-5 bg-blue-600 rounded-full"></span> Dimensions & Weight
+                                </h4>
+                                <div id="dimSpecs"></div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-5 flex items-center gap-2">
+                                    <span class="w-1 h-5 bg-emerald-500 rounded-full"></span> Pricing
+                                </h4>
+                                <div id="pricingSpecs"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Warranties -->
+                    <div class="mt-12">
+                        <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-5 flex items-center gap-2">
+                            <span class="w-1 h-5 bg-violet-500 rounded-full"></span> Warranty Coverage
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="warrantiesList"></div>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </main>
+
+    <footer class="bg-gray-900 text-gray-500 py-6 text-center text-xs tracking-wide mt-auto">
+        <p>&copy; 2026 VIN Decoder Pro &mdash; Vehicle Intelligence Platform</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
